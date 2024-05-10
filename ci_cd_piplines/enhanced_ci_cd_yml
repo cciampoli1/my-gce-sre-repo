@@ -1,0 +1,49 @@
+name: Enhanced CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build Docker Image
+      run: |
+        docker build -t my-app:${{ github.sha }} .
+
+    - name: Docker Security Scanning
+      uses: Azure/container-scan@v1
+      with:
+        image-name: my-app:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@master
+      with:
+        version: '290.0.1'
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        export_default_credentials: true
+
+    - name: Configure Docker for GCR
+      run: gcloud auth configure-docker
+
+    - name: Push Image to GCR
+      run: |
+        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/my-app:${{ github.sha }}
+
+    - name: Deploy to GKE
+      run: |
+        kubectl set image deployment/my-app-deployment my-app=gcr.io/${{ secrets.GCP_PROJECT_ID }}/my-app:${{ github.sha }}
+        kubectl rollout status deployment/my-app-deployment

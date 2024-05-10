@@ -1,0 +1,13 @@
+replicaCount: 1
+image:
+  repository: prom/prometheus
+  pullPolicy: IfNotPresent
+  tag: "v2.26.0"
+service:
+  type: LoadBalancer
+  port: 9090
+alertmanager:
+  enabled: true
+  service:
+    type: LoadBalancer
+    port: 9093
